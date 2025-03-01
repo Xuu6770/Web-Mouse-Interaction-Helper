@@ -1,2 +1,29 @@
-# Mouse-Click-Event-Assistant
-脚本将根据你在网页上的鼠标左右键点击事件给予你相应的辅助。/ The script will give you assistance based on the events of your left and right mouse button clicks on the web page.
+<h1 align = "center">鼠标点击行为辅助</h1>
+
+<p align = "center">
+    <a href = "README.md" target = "_blank">CN</a> | <a href = "README_EN.md" target = "_blank">EN</a>
+</p>
+
+## 功能介绍
+
+脚本将监听你在网页上的鼠标点击事件，并根据你点击的是左键还是右键以及点击的元素，做出相应的辅助行为。
+
+### 鼠标左键
+
+针对鼠标左键，当你点击超链接时，无论该链接原本是以何种方式打开，现在都将强制在新标签页打开。
+
+### 鼠标右键
+
+针对鼠标右键，你的每一次点击，脚本都会复制你所点击的元素内的文本（点击图片和表单元素时除外），用于快速复制文本，复制成功或失败，网页右下角都会有提示。
+
+本功能并不会阻止鼠标右键本身的默认行为（即弹出网页菜单）。
+
+## 安装使用
+
+在安装好 Tampermonkey 的情况下，点击脚本文件，随后点击右上角的`Raw`按钮安装。
+
+安装好后，可在 Tampermonkey 中选择性开启或关闭左键或右键的监听功能。
+
+## 废话
+
+该脚本仅仅是基于个人平时的使用习惯编写，上传 GitHub 仅供学习交流和分享，且方便自己多端多浏览器同步。
