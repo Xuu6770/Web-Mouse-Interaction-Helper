@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         鼠标点击行为辅助
+// @name         网页内鼠标行为辅助
 // @namespace    https://github.com/Xuu6770
-// @version      2025-03-01
-// @description  监听鼠标左右键事件并予以行为辅助。
+// @version      2025-03-05
+// @description  监听鼠标事件并予以相应的辅助行为。
 // @author       Aiden Lin
 // @match        http://*/*
 // @match        https://*/*
@@ -28,26 +28,23 @@
     function toggleOpenLinkInNewTab() {
         enableOpenLinkInNewTab = !enableOpenLinkInNewTab;
         GM_setValue('enableOpenLinkInNewTab', enableOpenLinkInNewTab);
-        alert('强制新标签页打开链接功能已' + (enableOpenLinkInNewTab ? '启用' : '禁用'));
+        alert('左键拖动在新标签页打开功能已' + (enableOpenLinkInNewTab ? '启用' : '禁用'));
     }
 
     // 注册菜单命令，动态显示启用/禁用状态
     GM_registerMenuCommand(
-        (enableCopyOnRightClick ? '禁用' : '启用') + '右键复制',
+        (enableCopyOnRightClick ? '禁用' : '启用') + ' 右键复制元素内文本',
         toggleCopyOnRightClick
     );
     GM_registerMenuCommand(
-        (enableOpenLinkInNewTab ? '禁用' : '启用') + '强制新标签页打开链接',
+        (enableOpenLinkInNewTab ? '禁用' : '启用') + ' 左键拖动在新标签页打开',
         toggleOpenLinkInNewTab
     );
 
-    // 右键复制元素内文本
+    // 创建提示框函数
     function createNotification(message, isSuccess) {
-        // 创建提示框元素
         var notification = document.createElement('div');
         notification.textContent = message;
-
-        // 设置样式
         notification.style.position = 'fixed';
         notification.style.bottom = '20px';
         notification.style.right = '20px';
@@ -60,26 +57,16 @@
         notification.style.opacity = '0';
         notification.style.transition = 'opacity 0.5s ease';
 
-        // 添加到页面
         document.body.appendChild(notification);
-
-        // 淡入效果
-        setTimeout(function() {
-            notification.style.opacity = '1';
-        }, 100);
-
-        // 2秒后淡出并移除
+        setTimeout(function() { notification.style.opacity = '1'; }, 100);
         setTimeout(function() {
             notification.style.opacity = '0';
-            setTimeout(function() {
-                document.body.removeChild(notification);
-            }, 500);
+            setTimeout(function() { document.body.removeChild(notification); }, 500);
         }, 2000);
     }
 
-    // 监听右键事件
+    // 右键复制元素内文本
     document.addEventListener('contextmenu', function(event) {
-        // 检查开关状态，未启用则跳过
         if (!enableCopyOnRightClick) return;
 
         var target = event.target;
@@ -91,48 +78,45 @@
         }
 
         var text = target.textContent.trim();
-
-        // 如果有文本内容，执行复制
         if (text) {
             navigator.clipboard.writeText(text).then(function() {
-                // 复制成功，显示绿色提示
                 createNotification('文本已复制到剪贴板', true);
             }).catch(function(err) {
-                // 复制失败，显示红色提示
                 createNotification('复制文本失败', false);
                 console.error('复制文本失败: ', err);
             });
         }
     });
 
-    // 左键点击超链接强制以新标签页打开
-    document.addEventListener('click', function(event) {
-        // 检查开关状态，未启用则跳过
+    // ==============================
+
+    // 拖动超链接或图片在新标签页打开
+    let draggedUrl = '';
+    let isDraggingLinkOrImage = false;
+
+    // 监听拖动开始
+    document.addEventListener('dragstart', function(event) {
         if (!enableOpenLinkInNewTab) return;
 
-        // 获取被点击的元素
-        var target = event.target;
-
-        // 向上查找最近的 <a> 标签
-        while (target && target.tagName !== 'A') {
-            target = target.parentElement;
-        }
-
-        // 如果点击的是 <a> 标签
-        if (target && target.tagName === 'A') {
-            var href = target.getAttribute('href');
-
-            // 如果 href 为空、或以 javascript: 或 # 开头，则不处理
-            if (!href || href.startsWith('javascript:') || href.startsWith('#')) {
-                return;
-            }
-
-            // 阻止默认行为
-            event.preventDefault();
-
-            // 在新标签页打开链接
-            window.open(href, '_blank');
+        const target = event.target;
+        if (target.tagName === 'A' && target.href) {
+            draggedUrl = target.href;
+            isDraggingLinkOrImage = true;
+        } else if (target.tagName === 'IMG' && target.src) {
+            draggedUrl = target.src;
+            isDraggingLinkOrImage = true;
         }
     });
 
+    // 监听拖动结束
+    document.addEventListener('dragend', function(event) {
+        if (!enableOpenLinkInNewTab) return;
+
+        if (isDraggingLinkOrImage && event.dataTransfer.dropEffect === 'none') {
+            window.open(draggedUrl, '_blank');
+        }
+        // 重置状态
+        isDraggingLinkOrImage = false;
+        draggedUrl = '';
+    });
 })();
