@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         网页交互助手
 // @namespace    https://github.com/Xuu6770
-// @version      2026-07-03
+// @version      2026-07-06
 // @description  监听网页内鼠标行为，提供右键快速复制文本、左键拖拽链接/图片在新标签页打开，快速下载图片/复制图片链接等辅助功能。
 // @author       Aiden Lin
 // @match        http://*/*
@@ -284,7 +284,7 @@
         const height = img.naturalHeight || img.height || 0;
 
         // 过滤微小图片/图标（宽度小于80px，高度小于50px，通常不是内容图片）
-        if (width < 80 || height < 50) return;
+        if (width < 200 || height < 200) return;
 
         hoverImg = img;
         if (hideTimeout) {
@@ -305,9 +305,10 @@
 
         // 面板的估计尺寸（宽约100px，高约36px）
         const panelWidth = 100;
+        const panelHeight = 36;
         const margin = 8;
-        const top = rect.top + scrollY + margin;
-        const left = rect.right + scrollX - panelWidth - margin;
+        const top = rect.bottom + scrollY - panelHeight - margin;
+        const left = rect.left + scrollX + margin;
 
         actionPanel.style.top = `${top}px`;
         actionPanel.style.left = `${left}px`;
