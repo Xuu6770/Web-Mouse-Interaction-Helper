@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         网页交互助手
 // @namespace    https://github.com/Xuu6770
-// @version      2026-07-06
+// @version      2026-07-14
 // @description  监听网页内鼠标行为，提供右键快速复制文本、左键拖拽链接/图片在新标签页打开，快速下载图片/复制图片链接等辅助功能。
 // @author       Aiden Lin
 // @match        http://*/*
@@ -273,24 +273,29 @@
     const downloadBtn = actionPanel.querySelector('#wmh-download-btn');
 
     let hoverImg = null;
-    let hideTimeout = null;
+    let currentOverlay = null; // 用于记录通过 Shift 穿透触发时的 topmost 遮罩元素
+    let lastX = 0;
+    let lastY = 0;
+
+    // 监听鼠标移动，实时记录坐标（用于 Shift 按下时获取当前鼠标位置，无性能损耗）
+    document.addEventListener('mousemove', function(event) {
+        lastX = event.clientX;
+        lastY = event.clientY;
+    }, { passive: true });
 
     // 显示操作面板
-    function showPanel(img) {
+    function showPanel(img, overlayElement = null) {
         if (!enableImageDownload) return;
 
         // 获取图片尺寸限制，若未加载完成则获取当前渲染大小
         const width = img.naturalWidth || img.width || 0;
         const height = img.naturalHeight || img.height || 0;
 
-        // 过滤微小图片/图标（宽度小于80px，高度小于50px，通常不是内容图片）
+        // 过滤微小图片/图标（宽度小于200px，高度小于200px，通常不是内容图片）
         if (width < 200 || height < 200) return;
 
         hoverImg = img;
-        if (hideTimeout) {
-            clearTimeout(hideTimeout);
-            hideTimeout = null;
-        }
+        currentOverlay = overlayElement; // 记录对应的遮罩元素（普通悬停自动唤出时为 null）
 
         updatePanelPosition();
         actionPanel.style.display = 'flex';
@@ -314,16 +319,14 @@
         actionPanel.style.left = `${left}px`;
     }
 
-    // 延迟隐藏面板，留出时间供鼠标滑动到面板上
+    // 隐藏操作面板
     function hidePanel() {
-        if (hideTimeout) return;
-        hideTimeout = setTimeout(() => {
-            actionPanel.style.display = 'none';
-            hoverImg = null;
-        }, 300);
+        actionPanel.style.display = 'none';
+        hoverImg = null;
+        currentOverlay = null;
     }
 
-    // 事件监听（事件委托）
+    // 事件监听一：普通大图的鼠标悬停检测
     document.addEventListener('mouseover', function(event) {
         const target = event.target;
         if (target.tagName === 'IMG') {
@@ -331,23 +334,54 @@
         }
     });
 
+    // 事件监听二：按下 Shift 键进行穿透检测
+    document.addEventListener('keydown', function(event) {
+        if (event.key !== 'Shift') return;
+        if (actionPanel.style.display === 'flex') return; // 如果面板已经显示，不重复处理
+
+        // 获取鼠标指针下叠放的所有元素
+        const elements = document.elementsFromPoint(lastX, lastY);
+        if (!elements || elements.length === 0) return;
+
+        // 寻找叠放元素中的第一张大图片
+        const img = elements.find(el => el.tagName === 'IMG');
+        if (img) {
+            // 如果最上层元素不是图片，说明有遮罩遮挡，记录该遮罩层元素以管理后续移出事件
+            const overlay = elements[0] !== img ? elements[0] : null;
+            showPanel(img, overlay);
+        }
+    });
+
+    // 判断即将移入的目标是否仍属于交互活跃区域（面板本身、大图本身或其上方绑定的遮罩）
+    function isEnteringInteractiveArea(toElement) {
+        if (!toElement) return false;
+        if (toElement === actionPanel || actionPanel.contains(toElement)) return true;
+        if (toElement === hoverImg) return true;
+        if (currentOverlay && (toElement === currentOverlay || currentOverlay.contains(toElement))) return true;
+        return false;
+    }
+
+    // 事件监听三：利用 mouseout 和 relatedTarget 进行精准的面板消失管理（零定时器延迟）
     document.addEventListener('mouseout', function(event) {
+        if (actionPanel.style.display !== 'flex') return;
+
         const target = event.target;
-        if (target.tagName === 'IMG') {
+        const toElement = event.relatedTarget;
+
+        // 如果鼠标离开了当前的图片或其对应的遮罩层
+        if (target === hoverImg || (currentOverlay && target === currentOverlay)) {
+            if (!isEnteringInteractiveArea(toElement)) {
+                hidePanel();
+            }
+        }
+    });
+
+    // 面板本身的 mouseout 监听，处理用户从操作面板离开时的逻辑
+    actionPanel.addEventListener('mouseout', function(event) {
+        const toElement = event.relatedTarget;
+        if (!isEnteringInteractiveArea(toElement)) {
             hidePanel();
         }
-    });
-
-    // 鼠标在面板上方时保持显示
-    actionPanel.addEventListener('mouseover', function() {
-        if (hideTimeout) {
-            clearTimeout(hideTimeout);
-            hideTimeout = null;
-        }
-    });
-
-    actionPanel.addEventListener('mouseout', function() {
-        hidePanel();
     });
 
     // 滚动页面时实时同步位置，保证面板贴合图片
@@ -418,7 +452,7 @@
                 const mime = src.match(/data:([^;]+);/);
                 const ext = mime ? mime[1].split('/')[1] : 'png';
                 filename = `image_${Date.now()}.${ext}`;
-
+                
                 const a = document.createElement('a');
                 a.href = src;
                 a.download = filename;
